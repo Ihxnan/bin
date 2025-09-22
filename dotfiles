@@ -1,0 +1,5 @@
+#!/usr/bin/bash
+
+rm -rf Dotfiles
+
+git clone https://github.com/ihxnan/Dotfiles.git
