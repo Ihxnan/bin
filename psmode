@@ -1,0 +1,5 @@
+#!/usr/bin/bash
+
+powerprofilesctl set power-saver
+
+sudo powertop --auto-tune
