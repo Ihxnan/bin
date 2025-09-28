@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cleanup() {
+    echo ""
+    echo "⚠️  检测到 Ctrl+C，正在执行清理工作..."
+    rm -f *.out data.txt ans.txt test.txt
+    echo "✅  临时文件已删除。"
+    exit 1
+}
+
+trap cleanup SIGINT
+
+echo "🔧  开始编译程序..."
+g++ -std=c++17 -O3 ans.cpp -o ans.out
+g++ -std=c++17 -O3 test.cpp -o test.out
+g++ -std=c++17 -O3 data.cpp -o data.out
+echo "✅  所有程序编译成功！"
+echo "--------------------"
+
+echo "🚀  开始进行自动化测试..."
+echo "💡  按 Ctrl+C 可随时中断并清理。"
+
+count=0
+MAX_ATTEMPTS=100
+
+while true; do
+    ((++count))
+
+    if [ $count -gt $MAX_ATTEMPTS ]; then
+        echo "✅  已尝试 $MAX_ATTEMPTS 次，未找到反例。测试通过！"
+        break
+    fi
+
+    echo "正在进行第 $count 次测试..."
+
+    echo "  - 正在生成测试数据..."
+    ./data.out > data.txt
+
+    echo "  - 正在运行标准程序 (ans.out)..."
+    ./ans.out < data.txt > ans.txt
+    echo "  - 正在运行你的程序 (test.out)..."
+    ./test.out < data.txt > test.txt
+
+    echo "  - 正在比较输出结果..."
+    if ! diff -q ans.txt test.txt > /dev/null; then
+        echo "--------------------"
+        echo "❌  找到反例！在第 $count 次测试中。"
+        echo "📄  测试数据已保存到: data.txt"
+        echo "📄  标准输出已保存到: ans.txt"
+        echo "📄  你的输出已保存到: test.txt"
+        echo "--- 详细差异如下 ---"
+        diff ans.txt test.txt
+        echo "--------------------"
+        break
+    else
+        echo "  - 第 $count 次测试：结果一致。"
+    fi
+
+    echo "--------------------"
+done
+
+# --- 4. 正常结束时的清理 ---
+echo "🔄  测试结束，正在清理文件..."
+rm -f *.out data.txt ans.txt test.txt
+echo "✅  所有临时文件已清理。"
+echo "🎉  脚本运行完毕。"
