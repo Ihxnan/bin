@@ -28,8 +28,9 @@ usage() {
 cleanup() {
     echo ""
     echo "⚠️  检测到中断，正在执行清理工作..."
+    rm *.out
     if [[ $KEEP_FILES -eq 0 ]]; then
-        rm -f *.out "$DATA_FILE" "$ANS_FILE" "$TEST_FILE"
+        rm "$DATA_FILE" "$ANS_FILE" "$TEST_FILE"
         echo "✅  临时文件已删除。"
     else
         echo "ℹ️  保留临时文件（KEEP_FILES=1）。"
@@ -141,6 +142,7 @@ while (( count < MAX_ATTEMPTS )); do
     echo "  - 正在比较输出结果 (使用参数: $DIFF_FLAGS)..."
     # 使用 eval 来正确处理包含空格的 DIFF_FLAGS
     if ! eval "diff $DIFF_FLAGS \"$ANS_FILE\" \"$TEST_FILE\"" > /dev/null; then
+        rm *.out
         echo "--------------------"
         echo "❌  找到反例！在第 $count 次测试中。"
         echo "📄  测试数据已保存到: $DATA_FILE"
@@ -163,8 +165,9 @@ fi
 
 # 正常结束时的清理
 echo "🔄  测试结束，正在清理文件..."
+rm *.out
 if [[ $KEEP_FILES -eq 0 ]]; then
-    rm -f *.out "$DATA_FILE" "$ANS_FILE" "$TEST_FILE"
+    rm "$DATA_FILE" "$ANS_FILE" "$TEST_FILE"
     echo "✅  所有临时文件已清理。"
 else
     echo "ℹ️  已保留临时文件。"
