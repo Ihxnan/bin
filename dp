@@ -1,56 +1,153 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cleanup() {
-    echo ""
-    echo "⚠️  检测到 Ctrl+C，正在执行清理工作..."
-    rm -f *.out data.txt ans.txt test.txt
-    echo "✅  临时文件已删除。"
-    exit 1
+# --- 默认配置区 ---
+MAX_ATTEMPTS=100
+KEEP_FILES=0
+DIFF_FLAGS="-u"  # 默认的 diff 参数
+# --- 默认配置区结束 ---
+
+# 临时文件命名
+DATA_FILE="data.txt"
+ANS_FILE="ans.txt"
+TEST_FILE="test.txt"
+
+# --- 函数定义 ---
+
+# 显示帮助信息
+usage() {
+    echo "用法: $0 [选项]"
+    echo "  -n, --max-attempts <次数>   指定最大测试次数 (默认: $MAX_ATTEMPTS)"
+    echo "  -k, --keep-files            测试结束后保留临时文件 (默认: 删除)"
+    echo "  -d, --diff-flags <参数>     自定义 diff 命令的参数 (默认: '$DIFF_FLAGS')"
+    echo "  -h, --help                  显示此帮助信息"
+    exit 0
 }
 
+# 清理函数
+cleanup() {
+    echo ""
+    echo "⚠️  检测到中断，正在执行清理工作..."
+    if [[ $KEEP_FILES -eq 0 ]]; then
+        rm -f *.out "$DATA_FILE" "$ANS_FILE" "$TEST_FILE"
+        echo "✅  临时文件已删除。"
+    else
+        echo "ℹ️  保留临时文件（KEEP_FILES=1）。"
+    fi
+    exit 1
+}
+# --- 函数定义结束 ---
+
+# 捕获 Ctrl+C 信号
 trap cleanup SIGINT
 
+# --- 解析命令行参数 ---
+# 使用 getopts 进行解析，支持短选项
+while getopts "n:kd:h-:" opt; do
+    case "$opt" in
+        n)
+            MAX_ATTEMPTS="$OPTARG"
+            ;;
+        k)
+            KEEP_FILES=1
+            ;;
+        d)
+            DIFF_FLAGS="$OPTARG"
+            ;;
+        h)
+            usage
+            ;;
+        -)
+            # 处理长选项，如 --max-attempts
+            case "${OPTARG}" in
+                max-attempts)
+                    MAX_ATTEMPTS="${!OPTIND}"; OPTIND=$((OPTIND + 1))
+                    ;;
+                keep-files)
+                    KEEP_FILES=1
+                    ;;
+                diff-flags)
+                    DIFF_FLAGS="${!OPTIND}"; OPTIND=$((OPTIND + 1))
+                    ;;
+                help)
+                    usage
+                    ;;
+                *)
+                    echo "错误: 未知的长选项 '--${OPTARG}'" >&2
+                    usage
+                    ;;
+            esac
+            ;;
+        \?)
+            echo "错误: 未知的选项 '-$OPTARG'" >&2
+            usage
+            ;;
+        :)
+            echo "错误: 选项 '-$OPTARG' 需要一个参数" >&2
+            usage
+            ;;
+    esac
+done
+shift $((OPTIND - 1)) # 移动参数指针到选项结束的位置
+# --- 参数解析结束 ---
+
+# 编译程序
 echo "🔧  开始编译程序..."
-g++ -std=c++17 -O3 ans.cpp -o ans.out
-g++ -std=c++17 -O3 test.cpp -o test.out
-g++ -std=c++17 -O3 data.cpp -o data.out
+if ! g++ -std=c++17 -O3 ans.cpp -o ans.out; then
+    echo "❌  编译 ans.cpp 失败！"
+    exit 1
+fi
+if ! g++ -std=c++17 -O3 test.cpp -o test.out; then
+    echo "❌  编译 test.cpp 失败！"
+    exit 1
+fi
+if ! g++ -std=c++17 -O3 data.cpp -o data.out; then
+    echo "❌  编译 data.cpp 失败！"
+    exit 1
+fi
 echo "✅  所有程序编译成功！"
 echo "--------------------"
 
 echo "🚀  开始进行自动化测试..."
 echo "💡  按 Ctrl+C 可随时中断并清理。"
+echo "💡  当前配置: 最大测试次数=$MAX_ATTEMPTS, 保留文件=$([ $KEEP_FILES -eq 1 ] && echo "是" || echo "否"), diff参数='$DIFF_FLAGS'"
+echo "--------------------"
 
 count=0
-MAX_ATTEMPTS=100
 
-while true; do
+while (( count < MAX_ATTEMPTS )); do
     ((++count))
-
-    if [ $count -gt $MAX_ATTEMPTS ]; then
-        echo "✅  已尝试 $MAX_ATTEMPTS 次，未找到反例。测试通过！"
-        break
-    fi
 
     echo "正在进行第 $count 次测试..."
 
     echo "  - 正在生成测试数据..."
-    ./data.out > data.txt
+    if ! ./data.out > "$DATA_FILE"; then
+        echo "❌  数据生成程序异常退出！"
+        exit 1
+    fi
 
     echo "  - 正在运行标准程序 (ans.out)..."
-    ./ans.out < data.txt > ans.txt
+    if ! ./ans.out < "$DATA_FILE" > "$ANS_FILE"; then
+        echo "❌  标准程序异常退出！"
+        exit 1
+    fi
+    
     echo "  - 正在运行你的程序 (test.out)..."
-    ./test.out < data.txt > test.txt
+    if ! ./test.out < "$DATA_FILE" > "$TEST_FILE"; then
+        echo "❌  你的程序异常退出！"
+        exit 1
+    fi
 
-    echo "  - 正在比较输出结果..."
-    if ! diff -q ans.txt test.txt > /dev/null; then
+    echo "  - 正在比较输出结果 (使用参数: $DIFF_FLAGS)..."
+    # 使用 eval 来正确处理包含空格的 DIFF_FLAGS
+    if ! eval "diff $DIFF_FLAGS \"$ANS_FILE\" \"$TEST_FILE\"" > /dev/null; then
         echo "--------------------"
         echo "❌  找到反例！在第 $count 次测试中。"
-        echo "📄  测试数据已保存到: data.txt"
-        echo "📄  标准输出已保存到: ans.txt"
-        echo "📄  你的输出已保存到: test.txt"
+        echo "📄  测试数据已保存到: $DATA_FILE"
+        echo "📄  标准输出已保存到: $ANS_FILE"
+        echo "📄  你的输出已保存到: $TEST_FILE"
         echo "--- 详细差异如下 ---"
-        diff ans.txt test.txt
+        eval "diff $DIFF_FLAGS \"$ANS_FILE\" \"$TEST_FILE\""
         echo "--------------------"
         break
     else
@@ -60,8 +157,16 @@ while true; do
     echo "--------------------"
 done
 
-# --- 4. 正常结束时的清理 ---
+if (( count >= MAX_ATTEMPTS )); then
+    echo "✅  已尝试 $MAX_ATTEMPTS 次，未找到反例。测试通过！"
+fi
+
+# 正常结束时的清理
 echo "🔄  测试结束，正在清理文件..."
-rm -f *.out data.txt ans.txt test.txt
-echo "✅  所有临时文件已清理。"
+if [[ $KEEP_FILES -eq 0 ]]; then
+    rm -f *.out "$DATA_FILE" "$ANS_FILE" "$TEST_FILE"
+    echo "✅  所有临时文件已清理。"
+else
+    echo "ℹ️  已保留临时文件。"
+fi
 echo "🎉  脚本运行完毕。"
