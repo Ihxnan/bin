@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+
+# --- 配置区 ---
+TERMINAL="alacritty"
+TERMINAL_TITLE="ncmpcpp-term"
+MPD_CLIENT="ncmpcpp"
+TERMINAL_CLASS="ncmpcpp-float"
+# --- 配置区结束 ---
+
+# 检查 mpd 和 ncmpcpp 的运行状态
+mpd_running=$(pgrep -x "mpd" > /dev/null && echo "true" || echo "false")
+ncmpcpp_running=$(pgrep -x "$MPD_CLIENT" > /dev/null && echo "true" || echo "false")
+
+# --- 逻辑判断 ---
+
+# 情况 1: 如果 mpd 和 ncmpcpp 都在运行 (状态: 全开)
+# 动作: 关闭 ncmpcpp 终端，然后停止 mpd
+if [[ "$mpd_running" == "true" && "$ncmpcpp_running" == "true" ]]; then
+    echo "✅ 发现 mpd 和 $MPD_CLIENT 都在运行，正在彻底关闭音乐系统..."
+
+    # 1. 关闭 ncmpcpp 的终端窗口
+    ClientPID=$(pgrep -x "$MPD_CLIENT" -o)
+    TerminalPID=$(ps -o ppid= -p "$ClientPID" | awk '{print $1}')
+    kill "$TerminalPID"
+    sleep 0.1 # 给终端一点时间完全关闭
+
+    # 2. 停止 mpd 服务
+    if mpd --kill; then
+        echo "🔚 已成功关闭终端并停止 mpd 服务。"
+    else
+        echo "❌ 停止 mpd 服务失败！"
+    fi
+
+# 情况 2: 如果只有 mpd 在运行 (状态: 后台运行，无界面)
+# 动作: 只启动 ncmpcpp 终端
+elif [[ "$mpd_running" == "true" && "$ncmpcpp_running" == "false" ]]; then
+    echo "ℹ️ 发现 mpd 在运行，但 $MPD_CLIENT 未运行，正在启动界面..."
+
+    # 1. 启动终端并运行 ncmpcpp
+    $TERMINAL --class "$TERMINAL_CLASS" -t "$TERMINAL_TITLE" -e "$MPD_CLIENT" &
+    echo "🖥️ 已启动浮动置顶的 ${MPD_CLIENT}。"
+
+# 情况 3: 如果 mpd 没有运行 (无论 ncmpcpp 状态如何)
+# 动作: 启动 mpd，等待，然后启动 ncmpcpp
+else
+    echo "❌ 未发现运行的 mpd，正在启动音乐系统..."
+
+    # 1. 启动 mpd 服务
+    if mpd; then
+        echo "🚀 已成功启动 mpd 服务。"
+    else
+        echo "❌ mpd 启动失败！请检查 mpd 配置文件。"
+        exit 1
+    fi
+
+    # 2. 等待 mpd 完成初始化
+    sleep 0.3
+
+    # 3. 启动终端并运行 ncmpcpp
+    echo "🖥️ 正在启动浮动置顶的 ${MPD_CLIENT}..."
+    $TERMINAL --class "$TERMINAL_CLASS" -t "$TERMINAL_TITLE" -e "$MPD_CLIENT" &
+
+    # (可选) 启动后自动播放音乐
+    if command -v mpc &> /dev/null; then
+        # 给 ncmpcpp 一点时间连接
+        sleep 0.2
+        if mpc status | grep -q "volume:"; then
+            mpc play > /dev/null && echo "🎵 已自动开始播放音乐。"
+        else
+            echo "⚠️ 播放列表为空。请在 ${MPD_CLIENT} 中添加音乐后按 'Enter' 播放。"
+        fi
+    fi
+fi
