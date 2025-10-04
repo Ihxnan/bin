@@ -15,5 +15,5 @@ fi
 
 # 连接到虚拟机
 echo "Connecting to Manjaro via SSH..."
-ssh ihxnan@192.168.122.18
+ssh ihxnan@192.168.122.107
 
