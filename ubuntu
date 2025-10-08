@@ -15,5 +15,5 @@ fi
 
 # 连接到虚拟机
 echo "Connecting to Ubuntu via SSH..."
-ssh ihxnan@192.168.122.110
+ssh ihxnan@192.168.122.224
 
