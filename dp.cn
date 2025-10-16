@@ -1,78 +1,93 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# --- 默认配置区 ---
 MAX_ATTEMPTS=100
 KEEP_FILES=0
-DIFF_FLAGS="-u"
+DIFF_FLAGS="-u"  # 默认的 diff 参数
+# --- 默认配置区结束 ---
 
+# 临时文件命名
 DATA_FILE="data.txt"
 ANS_FILE="ans.txt"
 TEST_FILE="test.txt"
 DIFF_CASE_FILE="diff_case.txt"
 
+# --- 函数定义 ---
+
+# 显示帮助信息
 usage() {
-    echo "Usage: $0 [options]"
-    echo "  -n, --max-attempts <number>  Set maximum test attempts (default: $MAX_ATTEMPTS)"
-    echo "  -k, --keep-files             Keep diff_case.txt when counterexample found (default: delete)"
-    echo "  -d, --diff-flags <flags>     Diff flags like -bB to ignore spaces (default: '$DIFF_FLAGS')"
-    echo "  -h, --help                   Show this help message"
+    echo "用法: $0 [选项]"
+    echo "  -n, --max-attempts <次数>   指定最大测试次数 (默认: $MAX_ATTEMPTS)"
+    echo "  -k, --keep-files            找到反例时保留 diff_case.txt 文件 (默认: 删除)"
+    echo "  -d, --diff-flags <参数>     -bB 忽略空格空行 (默认: '$DIFF_FLAGS')"
+    echo "  -h, --help                  显示此帮助信息"
     exit 0
 }
 
+# 将文件中的空格替换为点号
 replace_spaces_with_dots() {
     local input_file="$1"
     sed 's/ /./g' "$input_file"
 }
 
+# 创建美观的差异案例文件
 create_diff_case_file() {
     local attempt=$1
     
     cat > "$DIFF_CASE_FILE" << EOF
 ┌───────────────────────────────────────────────────────┐
-│          Counterexample Found - Attempt $attempt            │
+│                  发现反例 - 第 $attempt 次测试              │
 ├───────────────────────────────────────────────────────┤
-│ Time: $(date)                 │
-│ Config: Max attempts=$MAX_ATTEMPTS, diff flags='$DIFF_FLAGS'             │
+│ 测试时间: $(date)             │
+│ 测试配置: 最大次数=$MAX_ATTEMPTS, diff参数='$DIFF_FLAGS'                 │
 └───────────────────────────────────────────────────────┘
 
- Test Data ($DATA_FILE):
+ 测试数据 ($DATA_FILE):
 ─────────────────────────────────────────────────────────
 $(cat "$DATA_FILE")
 
- Expected Output ($ANS_FILE) [spaces as '.']:
+ 标准输出 ($ANS_FILE) [空格显示为'.']:
 ─────────────────────────────────────────────────────────
 $(replace_spaces_with_dots "$ANS_FILE")
 
- Your Output ($TEST_FILE) [spaces as '.']:
+ 你的输出 ($TEST_FILE) [空格显示为'.']:
 ─────────────────────────────────────────────────────────
 $(replace_spaces_with_dots "$TEST_FILE")
 
- Diff Output (diff $DIFF_FLAGS):
+ 差异对比 (diff $DIFF_FLAGS):
 ─────────────────────────────────────────────────────────
 
 ┌───────────────────────────────────────────────────────┐
-│                 Test Finished                        │
+│                        测试结束                      │
 └───────────────────────────────────────────────────────┘
 EOF
 }
 
+# 清理函数
 cleanup() {
     echo ""
-    echo "  Interrupt detected, cleaning up..."
+    echo "  检测到中断，正在执行清理工作..."
+    # 总是删除 .out 文件和其他临时文件
     rm -f *.out "$DATA_FILE" "$ANS_FILE" "$TEST_FILE"
+    # 根据 KEEP_FILES 决定是否删除 diff_case.txt
     if [[ $KEEP_FILES -eq 0 ]] && [[ -f "$DIFF_CASE_FILE" ]]; then
         rm -f "$DIFF_CASE_FILE"
-        echo "  All temporary files deleted."
+        echo "  所有临时文件已删除。"
     elif [[ -f "$DIFF_CASE_FILE" ]]; then
-        echo "  Diff case file preserved: $DIFF_CASE_FILE"
+        echo "  已保留差异案例文件: $DIFF_CASE_FILE"
     else
-        echo "  Temporary files deleted."
+        echo "  临时文件已删除。"
     fi
     exit 1
 }
+# --- 函数定义结束 ---
 
+# 捕获 Ctrl+C 信号
 trap cleanup SIGINT
 
+# --- 解析命令行参数 ---
+# 使用 getopts 进行解析，支持短选项
 while getopts "n:kd:h-:" opt; do
     case "$opt" in
         n)
@@ -88,6 +103,7 @@ while getopts "n:kd:h-:" opt; do
             usage
             ;;
         -)
+            # 处理长选项，如 --max-attempts
             case "${OPTARG}" in
                 max-attempts)
                     MAX_ATTEMPTS="${!OPTIND}"; OPTIND=$((OPTIND + 1))
@@ -102,42 +118,44 @@ while getopts "n:kd:h-:" opt; do
                     usage
                     ;;
                 *)
-                    echo "Error: Unknown long option '--${OPTARG}'" >&2
+                    echo "错误: 未知的长选项 '--${OPTARG}'" >&2
                     usage
                     ;;
             esac
             ;;
         \?)
-            echo "Error: Unknown option '-$OPTARG'" >&2
+            echo "错误: 未知的选项 '-$OPTARG'" >&2
             usage
             ;;
         :)
-            echo "Error: Option '-$OPTARG' requires an argument" >&2
+            echo "错误: 选项 '-$OPTARG' 需要一个参数" >&2
             usage
             ;;
     esac
 done
-shift $((OPTIND - 1))
+shift $((OPTIND - 1)) # 移动参数指针到选项结束的位置
+# --- 参数解析结束 ---
 
-echo "  Compiling programs..."
+# 编译程序
+echo "  开始编译程序..."
 if ! g++ -std=c++17 -O3 ans.cpp -o ans.out; then
-    echo "  Compilation failed: ans.cpp"
+    echo "  编译 ans.cpp 失败！"
     exit 1
 fi
 if ! g++ -std=c++17 -O3 test.cpp -o test.out; then
-    echo "  Compilation failed: test.cpp"
+    echo "  编译 test.cpp 失败！"
     exit 1
 fi
 if ! g++ -std=c++17 -O3 data.cpp -o data.out; then
-    echo "  Compilation failed: data.cpp"
+    echo "  编译 data.cpp 失败！"
     exit 1
 fi
-echo "  All programs compiled successfully!"
+echo "  所有程序编译成功！"
 echo "--------------------"
 
-echo "  Starting automated testing..."
-echo "  Press Ctrl+C to interrupt and cleanup."
-echo "  Config: Max attempts=$MAX_ATTEMPTS, Keep files=$([ $KEEP_FILES -eq 1 ] && echo "Yes" || echo "No"), Diff flags='$DIFF_FLAGS'"
+echo "  开始进行自动化测试..."
+echo "  按 Ctrl+C 可随时中断并清理。"
+echo "  当前配置: 最大测试次数=$MAX_ATTEMPTS, 保留差异文件=$([ $KEEP_FILES -eq 1 ] && echo "是" || echo "否"), diff参数='$DIFF_FLAGS'"
 echo "--------------------"
 
 count=0
@@ -146,52 +164,56 @@ found_counterexample=0
 while (( count < MAX_ATTEMPTS )); do
     ((++count))
 
-    echo "Running test attempt $count..."
+    echo "正在进行第 $count 次测试..."
 
-    echo "  - Generating test data..."
+    echo "  - 正在生成测试数据..."
     if ! ./data.out > "$DATA_FILE"; then
-        echo "  Data generator crashed!"
+        echo "  数据生成程序异常退出！"
         exit 1
     fi
 
-    echo "  - Running reference program (ans.out)..."
+    echo "  - 正在运行标准程序 (ans.out)..."
     if ! ./ans.out < "$DATA_FILE" > "$ANS_FILE"; then
-        echo "  Reference program crashed!"
+        echo "  标准程序异常退出！"
         exit 1
     fi
     
-    echo "  - Running your program (test.out)..."
+    echo "  - 正在运行你的程序 (test.out)..."
     if ! ./test.out < "$DATA_FILE" > "$TEST_FILE"; then
-        echo "  Your program crashed!"
+        echo "  你的程序异常退出！"
         exit 1
     fi
 
-    echo "  - Comparing outputs (using: $DIFF_FLAGS)..."
+    echo "  - 正在比较输出结果 (使用参数: $DIFF_FLAGS)..."
+    # 使用 eval 来正确处理包含空格的 DIFF_FLAGS
     if ! eval "diff $DIFF_FLAGS \"$ANS_FILE\" \"$TEST_FILE\"" > /dev/null; then
         found_counterexample=1
         echo "--------------------"
-        echo "  Counterexample found! On attempt $count."
+        echo "  找到反例！在第 $count 次测试中。"
         
+        # 创建美观的差异案例文件
         create_diff_case_file "$count"
-        echo "  Diff case saved to: $DIFF_CASE_FILE"
+        echo "  差异案例已保存到: $DIFF_CASE_FILE"
         echo ""
-        echo " Diff preview:"
+        echo " 差异预览:"
         echo "─────────────────────────────────────────────────────────────────────"
         eval "diff $DIFF_FLAGS \"$ANS_FILE\" \"$TEST_FILE\" | head -20" || true
         if eval "diff $DIFF_FLAGS \"$ANS_FILE\" \"$TEST_FILE\" | head -21 | tail -1" > /dev/null 2>&1; then
-            echo "   ... (full diff in $DIFF_CASE_FILE)"
+            echo "   ... (完整差异请查看 $DIFF_CASE_FILE)"
         fi
         echo "─────────────────────────────────────────────────────────────────────"
         
+        # 立即清理临时文件（除了 diff_case.txt）
         rm -f *.out "$DATA_FILE" "$ANS_FILE" "$TEST_FILE"
         break
     else
-        echo "  - Attempt $count: Outputs match."
+        echo "  - 第 $count 次测试：结果一致。"
     fi
 
     echo "--------------------"
 done
 
+# 如果没有找到反例，也清理临时文件
 if (( !found_counterexample )); then
     rm -f *.out "$DATA_FILE" "$ANS_FILE" "$TEST_FILE"
 fi
@@ -199,20 +221,21 @@ fi
 if (( found_counterexample )); then
     echo ""
     if [[ $KEEP_FILES -eq 1 ]]; then
-        echo "  Counterexample analysis complete. Diff report: $DIFF_CASE_FILE"
+        echo "  反例分析已完成，差异报告保存在: $DIFF_CASE_FILE"
     else
-        echo "  Counterexample found. Diff report will be deleted at exit."
-        echo "   Use -k option to preserve the diff report file."
+        echo "  本次测试发现反例，差异报告已生成但将在脚本结束时删除"
+        echo "   使用 -k 参数可保留差异报告文件"
     fi
 elif (( count >= MAX_ATTEMPTS )); then
-    echo "  All $MAX_ATTEMPTS attempts completed. No counterexamples found. Test passed!"
+    echo "  已尝试 $MAX_ATTEMPTS 次，未找到反例。测试通过！"
 fi
 
+# 根据 KEEP_FILES 决定是否删除 diff_case.txt
 if [[ $KEEP_FILES -eq 0 ]] && [[ -f "$DIFF_CASE_FILE" ]]; then
     rm -f "$DIFF_CASE_FILE"
-    echo "  All temporary files cleaned up."
+    echo "  所有临时文件已清理。"
 elif [[ -f "$DIFF_CASE_FILE" ]]; then
-    echo "  Diff report preserved: $DIFF_CASE_FILE"
+    echo "  差异报告已保留: $DIFF_CASE_FILE"
 fi
 
-echo "﫠  Script finished."
+echo "﫠  脚本运行完毕。"
