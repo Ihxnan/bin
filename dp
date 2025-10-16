@@ -19,7 +19,7 @@ usage() {
     echo "用法: $0 [选项]"
     echo "  -n, --max-attempts <次数>   指定最大测试次数 (默认: $MAX_ATTEMPTS)"
     echo "  -k, --keep-files            测试结束后保留临时文件 (默认: 删除)"
-    echo "  -d, --diff-flags <参数>     自定义 diff 命令的参数 (默认: '$DIFF_FLAGS')"
+    echo "  -d, --diff-flags <参数>     -bB 忽略空格空行 (默认: '$DIFF_FLAGS')"
     echo "  -h, --help                  显示此帮助信息"
     exit 0
 }
