@@ -21,39 +21,64 @@ usage() {
 
 replace_spaces_with_dots() {
     local input_file="$1"
-    sed 's/ /./g' "$input_file"
+    sed -e 's/ /./g' "$input_file"
 }
 
 create_diff_case_file() {
     local attempt=$1
-    
-    cat > "$DIFF_CASE_FILE" << EOF
-┌───────────────────────────────────────────────────────┐
-│          Counterexample Found - Attempt $attempt            │
-├───────────────────────────────────────────────────────┤
-│ Time: $(date)                 │
-│ Config: Max attempts=$MAX_ATTEMPTS, diff flags='$DIFF_FLAGS'             │
-└───────────────────────────────────────────────────────┘
+    local diff_file="$DIFF_CASE_FILE"
 
- Test Data ($DATA_FILE):
-─────────────────────────────────────────────────────────
-$(cat "$DATA_FILE")
+    > "$diff_file"
 
- Expected Output ($ANS_FILE) [spaces as '.']:
-─────────────────────────────────────────────────────────
-$(replace_spaces_with_dots "$ANS_FILE")
+    echo "┌───────────────────────────────────────────────────────┐" >> "$diff_file"
+    echo "│          Counterexample Found - Attempt $attempt            │" >> "$diff_file"
+    echo "├───────────────────────────────────────────────────────┤" >> "$diff_file"
+    echo "│ Time: $(date)                 │" >> "$diff_file"
+    echo "│ Config: Max attempts=$MAX_ATTEMPTS, diff flags='$DIFF_FLAGS'             │" >> "$diff_file"
+    echo "└───────────────────────────────────────────────────────┘" >> "$diff_file"
+    echo "" >> "$diff_file"
 
- Your Output ($TEST_FILE) [spaces as '.']:
-─────────────────────────────────────────────────────────
-$(replace_spaces_with_dots "$TEST_FILE")
+    echo " Test Data ($DATA_FILE):" >> "$diff_file"
+    echo "─────────────────────────────────────────────────────────" >> "$diff_file"
+    while IFS= read -r line; do
+        echo "$line" >> "$diff_file"
+    done < "$DATA_FILE"
+    echo "" >> "$diff_file"
 
- Diff Output (diff $DIFF_FLAGS):
-─────────────────────────────────────────────────────────
+    echo " Expected Output ($ANS_FILE) [spaces as '.']:" >> "$diff_file"
+    echo "─────────────────────────────────────────────────────────" >> "$diff_file"
+    while IFS= read -r line; do
+        echo "$line" | sed 's/ /./g' >> "$diff_file"
+    done < "$ANS_FILE"
+    if [ -n "$(tail -c 1 "$ANS_FILE")" ]; then
+        :
+    else
+        echo "" >> "$diff_file"
+    fi
+    echo "" >> "$diff_file"
 
-┌───────────────────────────────────────────────────────┐
-│                 Test Finished                        │
-└───────────────────────────────────────────────────────┘
-EOF
+    echo " Your Output ($TEST_FILE) [spaces as '.']:" >> "$diff_file"
+    echo "─────────────────────────────────────────────────────────" >> "$diff_file"
+    while IFS= read -r line; do
+        echo "$line" | sed 's/ /./g' >> "$diff_file"
+    done < "$TEST_FILE"
+    if [ -n "$(tail -c 1 "$TEST_FILE")" ]; then
+        :
+    else
+        echo "" >> "$diff_file"
+    fi
+    echo "" >> "$diff_file"
+
+    echo " Diff Output (diff $DIFF_FLAGS):" >> "$diff_file"
+    echo "─────────────────────────────────────────────────────────" >> "$diff_file"
+    diff $DIFF_FLAGS "$ANS_FILE" "$TEST_FILE" | while IFS= read -r line; do
+        echo "$line" >> "$diff_file"
+    done
+    echo "" >> "$diff_file"
+
+    echo "┌───────────────────────────────────────────────────────┐" >> "$diff_file"
+    echo "│                 Test Finished                        │" >> "$diff_file"
+    echo "└───────────────────────────────────────────────────────┘" >> "$diff_file"
 }
 
 cleanup() {
@@ -172,7 +197,7 @@ while (( count < MAX_ATTEMPTS )); do
         echo "--------------------"
         echo "  Counterexample found! On attempt $count."
         
-        create_diff_case_file "$count"
+        create_diff_case_file "$count" || true
         echo "  Diff case saved to: $DIFF_CASE_FILE"
         echo ""
         echo " Diff preview:"
