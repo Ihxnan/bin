@@ -40,33 +40,17 @@ create_diff_case_file() {
 
     echo " Test Data ($DATA_FILE):" >> "$diff_file"
     echo "─────────────────────────────────────────────────────────" >> "$diff_file"
-    while IFS= read -r line; do
-        echo "$line" >> "$diff_file"
-    done < "$DATA_FILE"
+    cat $DATA_FILE >> $diff_file
     echo "" >> "$diff_file"
 
     echo " Expected Output ($ANS_FILE) [spaces as '.']:" >> "$diff_file"
     echo "─────────────────────────────────────────────────────────" >> "$diff_file"
-    while IFS= read -r line; do
-        echo "$line" | sed 's/ /./g' >> "$diff_file"
-    done < "$ANS_FILE"
-    if [ -n "$(tail -c 1 "$ANS_FILE")" ]; then
-        :
-    else
-        echo "" >> "$diff_file"
-    fi
+    replace_spaces_with_dots $ANS_FILE >> $diff_file
     echo "" >> "$diff_file"
 
     echo " Your Output ($TEST_FILE) [spaces as '.']:" >> "$diff_file"
     echo "─────────────────────────────────────────────────────────" >> "$diff_file"
-    while IFS= read -r line; do
-        echo "$line" | sed 's/ /./g' >> "$diff_file"
-    done < "$TEST_FILE"
-    if [ -n "$(tail -c 1 "$TEST_FILE")" ]; then
-        :
-    else
-        echo "" >> "$diff_file"
-    fi
+    replace_spaces_with_dots $TEST_FILE >> "$diff_file"
     echo "" >> "$diff_file"
 
     echo " Diff Output (diff $DIFF_FLAGS):" >> "$diff_file"
@@ -238,6 +222,8 @@ if [[ $KEEP_FILES -eq 0 ]] && [[ -f "$DIFF_CASE_FILE" ]]; then
     echo "  All temporary files cleaned up."
 elif [[ -f "$DIFF_CASE_FILE" ]]; then
     echo "  Diff report preserved: $DIFF_CASE_FILE"
+    clear
+    cat "$DIFF_CASE_FILE"
 fi
 
 echo "﫠  Script finished."
