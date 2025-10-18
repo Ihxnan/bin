@@ -10,6 +10,10 @@ ANS_FILE="ans.txt"
 TEST_FILE="test.txt"
 DIFF_CASE_FILE="diff_case.txt"
 
+if [ -f "$DIFF_CASE_FILE" ]; then
+    rm "$DIFF_CASE_FILE"
+fi
+
 usage() {
     echo "Usage: $0 [options]"
     echo "  -n, --max-attempts <number>  Set maximum test attempts (default: $MAX_ATTEMPTS)"
