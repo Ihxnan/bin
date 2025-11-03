@@ -1,5 +1,5 @@
 #!/usr/bin/bash
 
-sudo pacman -Syyu
+sudo pacman -Syyu | lolcat
 
-paru -Syu
+paru -Syu | lolcat
