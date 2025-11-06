@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+ssh ubuntu@106.53.202.12
