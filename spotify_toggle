@@ -4,4 +4,4 @@ if ! pgrep -x "spotify" > /dev/null; then
     spotify &
 fi
 
-playerctl play-pause
+playerctl --player=spotify play-pause
