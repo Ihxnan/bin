@@ -45,12 +45,10 @@ if __name__ == "__main__":
 
     if len(sys.argv) < 3:
         print("用法说明：")
-        print(
-            "  python 脚本文件名.py <源目录路径> <目标目录路径> [可选：文件后缀（如 .txt）]"
-        )
+        print("  move <源目录路径> <目标目录路径> [可选：文件后缀（如 .txt）]")
         print("示例：")
-        print("  python move_files.py C:\\Users\\test\\Desktop D:\\txt_backup .txt")
-        print("  python move_files.py /home/user/docs /home/user/backup .pdf")
+        print("Win  :  move C:\\Users\\test\\Desktop D:\\txt_backup .txt")
+        print("Linux:  move /home/user/docs /home/user/backup .pdf")
         sys.exit(1)
 
     source_dir = sys.argv[1]
