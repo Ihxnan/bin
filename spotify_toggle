@@ -1,7 +1,21 @@
 #!/bin/bash
 
-if ! pgrep -x "spotify" > /dev/null; then
+if ! pgrep -x "spotify" >/dev/null; then
     spotify &
+    sleep 2
 fi
 
-playerctl --player=spotify play-pause
+case $1 in
+play-pause)
+    playerctl --player=spotify play-pause
+    ;;
+previous)
+    playerctl --player=spotify previous
+    ;;
+next)
+    playerctl --player=spotify next
+    ;;
+*)
+    playerctl --player=spotify play-pause
+    ;;
+esac
