@@ -14,8 +14,16 @@ if [ $# -eq 0 ]; then
     exit 0
 fi
 
+PID=$(pgrep -f "python3 -m http.server")
+
 case $1 in
 -o | --open)
+    if [ -n $PID ]; then
+        echo "Found html server is opening"
+        html -c
+        echo "Closed last html server."
+        echo
+    fi
     echo "Opening html server..."
     nohup python3 -m http.server 8000 &
     exit $?
