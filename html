@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+usage() {
+    echo "Usage: $(basename $0) [options]"
+    echo "Options:"
+    echo "  No arguments       show help information"
+    echo "  -o, --open         open http server"
+    echo "  -c, --close        close http server"
+    echo "  -h, --help         show help information"
+}
+
+if [ $# -eq 0 ]; then
+    usage
+    exit 0
+fi
+
+case $1 in
+-o | --open)
+    echo "Opening html server..."
+    nohup python3 -m http.server 8000 &
+    exit $?
+    ;;
+-c | --close)
+    echo "Closing html server..."
+    kill $(pgrep -f "python3 -m http.server")
+    exit $?
+    ;;
+-h | --help)
+    usage
+    exit 0
+    ;;
+*)
+    echo "Error: Invalid option $1"
+    echo
+    usage
+    exit 1
+    ;;
+esac
