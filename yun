@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-SERVER_IP='ihxnan@8.130.145.177'
+SERVER_IP=ihxnan.xyz
 SCRIPT_NAME=$(basename $0)
 
 usage() {
@@ -81,7 +81,7 @@ case $1 in
         usage
         exit1
     fi
-    LOCAL_PATH="YUN"
+    LOCAL_PATH="/home/ihxnan/YUN"
     echo "Mounting $SERVER_IP to $LOCAL_PATH..."
     sshfs $SERVER_IP: $LOCAL_PATH
     if [ $? -eq 0 ]; then
